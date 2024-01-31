@@ -84,6 +84,7 @@ class DQN():
         self.replay_buffer_memory_size = replay_buffer_memory_size
         self.replay_buffer_full = False
         self.acc_reward_list = []
+        self.loss_list = []
 
     def sample_minibatch(self):
         '''
@@ -125,7 +126,7 @@ class DQN():
             self.replay_buffer_idx = 0
             self.replay_buffer_full = True
 
-    def train(self, n_episodes, T, epsilon, gamma, lr, C, improved_mode=False):
+    def train(self, n_episodes, T, epsilon, gamma, lr, C, improved_mode=False, min_epsilon=0.05, stable_epsilon=0.005):
         '''
             Train the model for n episodes with a max iteration count of T per episode using epsilon greedy policy with
             a reward degradation of gamma a learning rate lr and update period for the target Q model of C iterations
@@ -146,14 +147,23 @@ class DQN():
             acc_reward = 0
             ep_loss_list = []
             for t in range(T):  # max T steps in each experience
-
-                # # Early stopping
-                if sum(self.acc_reward_list[-100:])/100 > 475:
+                # Early stopping
+                if sum(self.acc_reward_list[-130:]) / 130 > 475:
                     flag = True
                     break
-
-                # choose next action
-                epsilon = epsilon * 0.9998 if epsilon * 0.9998 > 0.001 else 0.001
+                if sum(self.acc_reward_list[-85:]) / 85 > 475:
+                    epsilon = 0.00025
+                elif sum(self.acc_reward_list[-75:]) / 75 > 475:
+                    epsilon = 0.0005
+                elif sum(self.acc_reward_list[-50:]) / 50 > 475:
+                    epsilon = 0.005
+                elif sum(self.acc_reward_list[-30:]) / 30 > 475:
+                    epsilon = 0.03
+                elif sum(self.acc_reward_list[-10:]) / 10 > 475:
+                    epsilon = 0.04
+                else:
+                    min_epsilon = 0.05
+                    epsilon = epsilon * 0.9998 if epsilon * 0.9998 > min_epsilon else min_epsilon
 
                 action = self.epsilon_greedy_action(epsilon, self.Qnet, state)
 
@@ -198,12 +208,13 @@ class DQN():
                 ep_loss_list.append(loss.item())
 
                 if done or truncated:  # debug print(if the model is learning then the accumulated reward should be increasing)
+                    loss = sum(ep_loss_list) / len(ep_loss_list)
                     print("total reward  in episode {0} is {1} last Qnet {2} epsilon {3:.5f} avg loss {4:.4f}".format(
                         ep,
                         acc_reward,
                         self.Qnet(state).detach().numpy(),
-                        epsilon,
-                        sum(ep_loss_list) / len(ep_loss_list)))
+                        epsilon, loss))
+                    self.loss_list.append(loss)
                     self.acc_reward_list.append(acc_reward)
                     break
 
@@ -223,18 +234,29 @@ class DQN():
                     self.QNetTarget = type(self.Qnet)(hidden_layers_size=self.hidden_layers)
                     self.QNetTarget.load_state_dict(self.Qnet.state_dict())
 
-        plt.plot(self.acc_reward_list, alpha=0.7)
-        running_avg_acc_reward = np.convolve(np.array(self.acc_reward_list), np.ones(30) / 30, mode='valid')
         plt.figure()
+
+        # means = np.array(self.acc_reward_list).unfold(0, 100, 1).mean(1).view(-1)
+        # means = torch.cat((torch.zeros(99), means))
+        # plt.plot(means.numpy())
+
+        running_avg_acc_reward = np.convolve(np.array(self.acc_reward_list), np.ones(100) / 100, mode='valid')
         plt.plot(running_avg_acc_reward, linewidth=2.5)
-        plt.ylabel("accumulated reward C: {0} LR: {1}".format(C, lr))
+
+        plt.plot(self.acc_reward_list, alpha=0.7)
+        plt.ylabel("accumulated reward")
         plt.xlabel("episode")
-        plt.legend(["accumulated reward", "average of last 30 runs"])
-        # plt.show()
+        plt.legend(["accumulated reward", "average of last 100 runs"])
+
+        plt.figure()
+        plt.plot(self.loss_list, alpha=0.7)
+        plt.ylabel("loss")
+        plt.xlabel("episode")
+
+        plt.show()
 
 
 def main():
-
     T = 100000
     g = 0.99
     epsilon = 0.9
@@ -249,7 +271,7 @@ def main():
     # print("########################## C: {0} LR: {1} G: {2} ##########################".format(c, lr, g))
     epsilon = 1
     d = DQN(batch_size, hidden_layers=[128, 128, 128], replay_buffer_memory_size=replay_size)
-    d.train(episodes, T, epsilon=epsilon, gamma=g, lr=lr, C=c,improved_mode=False)
+    d.train(episodes, T, epsilon=epsilon, gamma=g, lr=lr, C=c, improved_mode=False)
 
     plt.show()
 
