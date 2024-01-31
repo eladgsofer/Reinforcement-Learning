@@ -126,6 +126,27 @@ class DQN():
             self.replay_buffer_idx = 0
             self.replay_buffer_full = True
 
+
+    def test_agent(self, video = False):
+        env = gym.make('CartPole-v1')
+        if video:
+          from gym.wrappers.record_video import RecordVideo
+          env = RecordVideo(env, './video',  episode_trigger = lambda episode_number: True)
+
+        state = env.reset()
+        state = torch.from_numpy(state).float()
+        done = False
+        rewards = 0
+
+        while not done:
+            action = torch.argmax(self.Qnet(state))
+            next_state, reward, done, _  = env.step(action.item())
+            next_state = torch.from_numpy(next_state).float()
+            rewards += reward
+            state = next_state
+        env.close()
+        return rewards
+
     def train(self, n_episodes, T, epsilon, gamma, lr, C, improved_mode=False, min_epsilon=0.05, stable_epsilon=0.005):
         '''
             Train the model for n episodes with a max iteration count of T per episode using epsilon greedy policy with
@@ -272,8 +293,8 @@ def main():
     epsilon = 1
     d = DQN(batch_size, hidden_layers=[128, 128, 128], replay_buffer_memory_size=replay_size)
     d.train(episodes, T, epsilon=epsilon, gamma=g, lr=lr, C=c, improved_mode=False)
-
     plt.show()
+    # d.test_agent()
 
 
 if __name__ == "__main__":
