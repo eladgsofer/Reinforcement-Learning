@@ -58,7 +58,8 @@ class QNet(nn.Module):
             layers.append(nn.Linear(all_layers_sizes[i], all_layers_sizes[i + 1]))
             # layers.append(nn.BatchNorm1d(all_layers_sizes[i+1]))
             layers.append(nn.Dropout(0.05))
-            layers.append(nn.ReLU())
+            if i != len(all_layers_sizes)-1:
+                layers.append(nn.ReLU())
         self.layers = nn.Sequential(*layers)
         self.layers.apply(init_weights)
 
@@ -84,6 +85,7 @@ class DQN():
         self.replay_buffer_memory_size = replay_buffer_memory_size
         self.replay_buffer_full = False
         self.acc_reward_list = []
+        self.acc_reward_list.append(1)
         self.loss_list = []
 
     def sample_minibatch(self):
@@ -147,7 +149,7 @@ class DQN():
         env.close()
         return rewards
 
-    def train(self, n_episodes, T, epsilon, gamma, lr, C, improved_mode=False, min_epsilon=0.05, stable_epsilon=0.005):
+    def train(self, n_episodes, T, epsilon, gamma, lr, C, improved_mode=(False,0.005), min_epsilon=0.05, stable_epsilon=0.005):
         '''
             Train the model for n episodes with a max iteration count of T per episode using epsilon greedy policy with
             a reward degradation of gamma a learning rate lr and update period for the target Q model of C iterations
@@ -192,13 +194,15 @@ class DQN():
                 next_state, reward, done, truncated, info = self.env.step(int(action))
 
                 # save to memory
+                # if done:
+                #     reward = -10
+
                 single_step = (state, action, reward, next_state, done)
                 self.append_to_replay_buffer(single_step)
                 state = torch.tensor(next_state, dtype=torch.float32)
 
                 acc_reward = acc_reward + reward
-                # if done==True:
-                #     reward = -10
+
                 # print("blop")
                 # reward = reward*(t**(0.5))
 
@@ -220,10 +224,11 @@ class DQN():
                                                              gamma)
                 # learning:
 
-                # MSE_loss = torch.mean(error**2)
-                criterion = nn.SmoothL1Loss()
-                loss = criterion(esstimation, reference)
+                loss = torch.mean((esstimation-reference)**2)
+                # criterion = nn.SmoothL1Loss()
+                # loss = criterion(esstimation, reference)
                 loss.backward()
+                torch.nn.utils.clip_grad_value_(self.Qnet.parameters(), 100)
                 Qnet_optimizer.step()
                 step_counter = step_counter + 1
                 ep_loss_list.append(loss.item())
@@ -243,12 +248,14 @@ class DQN():
                 break
 
             # update Q-target
-            if improved_mode:
+            if improved_mode[0]:
                 target_net_state_dict = self.QNetTarget.state_dict()
                 adjusting_net_state_dict = self.Qnet.state_dict()
+                tau = improved_mode[1]
+
                 for key in adjusting_net_state_dict:
-                    target_net_state_dict[key] = adjusting_net_state_dict[key] * 0.005 + target_net_state_dict[key] * (
-                            1 - 0.005)
+                    target_net_state_dict[key] = adjusting_net_state_dict[key]*(t/self.acc_reward_list[-1]) * tau + target_net_state_dict[key] * (
+                            1 - (t/self.acc_reward_list[-1]) * tau)
                 self.QNetTarget.load_state_dict(target_net_state_dict)
             else:
                 if ep % C == 0:
@@ -286,13 +293,14 @@ def main():
     c = 5
     batch_size = 64
     replay_size = 10000
+    Tau = 0.4
     # for c in range(2, 9, 2):
     #    for lr in np.linspace(0.0005,0.0005*10, 4):
     #        for g in np.linspace(0.9, 0.99, 4):
     # print("########################## C: {0} LR: {1} G: {2} ##########################".format(c, lr, g))
     epsilon = 1
     d = DQN(batch_size, hidden_layers=[128, 128, 128], replay_buffer_memory_size=replay_size)
-    d.train(episodes, T, epsilon=epsilon, gamma=g, lr=lr, C=c, improved_mode=True)
+    d.train(episodes, T, epsilon=epsilon, gamma=g, lr=lr, C=c, improved_mode=(True,Tau))
     plt.show()
     # d.test_agent()
 
