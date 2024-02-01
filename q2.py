@@ -172,15 +172,17 @@ class DQN():
                 if sum(self.acc_reward_list[-130:]) / 130 > 475:
                     flag = True
                     break
-                if sum(self.acc_reward_list[-85:]) / 85 > 475:
+                if sum(self.acc_reward_list[-75:]) / 75 > 475:
                     epsilon = 0.00025
-                elif sum(self.acc_reward_list[-75:]) / 75 > 475:
-                    epsilon = 0.0005
                 elif sum(self.acc_reward_list[-50:]) / 50 > 475:
+                    epsilon = 0.0005
+                elif sum(self.acc_reward_list[-25:]) / 25 > 475:
                     epsilon = 0.005
-                elif sum(self.acc_reward_list[-30:]) / 30 > 475:
-                    epsilon = 0.03
+                elif sum(self.acc_reward_list[-15:]) / 15 > 475:
+                    epsilon = 0.01
                 elif sum(self.acc_reward_list[-10:]) / 10 > 475:
+                    epsilon = 0.03
+                elif sum(self.acc_reward_list[-5:]) / 5 > 475:
                     epsilon = 0.04
                 else:
                     min_epsilon = 0.05
@@ -282,7 +284,7 @@ def main():
     g = 0.99
     epsilon = 0.9
     lr = 0.0001
-    episodes = 1450
+    episodes = 3000
     c = 5
     batch_size = 64
     replay_size = 10000
