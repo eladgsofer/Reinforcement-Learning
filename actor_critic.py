@@ -94,10 +94,6 @@ def run(discount_factor, policy_learning_rate, sv_learning_rate):
 
     # Initialize the policy and the state-value network
     tf.reset_default_graph()
-    global_step = tf.Variable(0, trainable=False)
-    # policy_learning_rate = tf.train.exponential_decay(policy_learning_rate,
-    #                                     global_step, 1000,
-    #                                     0.5, staircase=True)
 
     policy = PolicyNetwork(state_size, action_size, policy_learning_rate)
     state_value = ValueNetwork(state_size, sv_learning_rate)
