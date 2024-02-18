@@ -105,7 +105,7 @@ def run(discount_factor, policy_learning_rate, sv_learning_rate):
         solved = False
         episode_rewards = np.zeros(max_episodes)
         average_rewards = 0.0
-        stable = False
+        early_stopping = False
         # pdb.set_trace()
         for episode in range(max_episodes):
 
@@ -115,15 +115,12 @@ def run(discount_factor, policy_learning_rate, sv_learning_rate):
             I_factor = 1
 
             for step in range(max_steps):
-                # pdb.set_trace()
 
                 # Take action A ~ pi(*|S,thetha) and observe S',R.
                 actions_distribution = sess.run(policy.actions_distribution, {policy.state: state})
-                try:
-                    action = np.random.choice(np.arange(len(actions_distribution)), p=actions_distribution)
-                except:
-                    # pdb.set_trace()
-                    print("hey")
+
+                action = np.random.choice(np.arange(len(actions_distribution)), p=actions_distribution)
+
                 next_state, reward, done, _ = env.step(action)
                 next_state = next_state.reshape([1, state_size])
 
@@ -154,9 +151,9 @@ def run(discount_factor, policy_learning_rate, sv_learning_rate):
                 # Update the policy network weights
                 feed_dict = {policy.state: state, policy.I_factor: I_factor,
                              policy.advantage_delta: advantage_delta}
-                if stable:
-                  # We prevent the network weights from changing after it is stable
-                  loss_policy = sess.run(policy.loss, feed_dict)
+                if early_stopping:
+                    # Early stopping to prevent the network weights from changing after it is stable
+                    loss_policy = sess.run(policy.loss, feed_dict)
                 else:
                   _, loss_policy = sess.run([policy.optimizer, policy.loss], feed_dict)
 
@@ -164,9 +161,9 @@ def run(discount_factor, policy_learning_rate, sv_learning_rate):
 
                     if episode > 98:
                         average_rewards = np.mean(episode_rewards[(episode - 99):episode + 1])
-                    lst_5_avg = np.mean(episode_rewards[(episode - 5):episode + 1])
-                    if lst_5_avg > 475:
-                        stable = True
+
+                    if np.mean(episode_rewards[(episode - 5):episode + 1]) > 475:
+                        early_stopping = True
 
                     print(
                         "Episode {} Reward: {} Average over 100 episodes: {}".format(episode, episode_rewards[episode],
