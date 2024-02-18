@@ -109,7 +109,8 @@ def run(discount_factor, policy_learning_rate, sv_learning_rate):
         solved = False
         episode_rewards = np.zeros(max_episodes)
         average_rewards = 0.0
-
+        stable = False
+        # pdb.set_trace()
         for episode in range(max_episodes):
 
             # pdb.set_trace
@@ -157,15 +158,19 @@ def run(discount_factor, policy_learning_rate, sv_learning_rate):
                 # Update the policy network weights
                 feed_dict = {policy.state: state, policy.I_factor: I_factor,
                              policy.advantage_delta: advantage_delta}
-                _, loss_policy = sess.run([policy.optimizer, policy.loss], feed_dict)
+                if stable:
+                  # We prevent the network weights from changing after it is stable
+                  loss_policy = sess.run(policy.loss, feed_dict)
+                else:
+                  _, loss_policy = sess.run([policy.optimizer, policy.loss], feed_dict)
 
                 if done:
 
                     if episode > 98:
                         average_rewards = np.mean(episode_rewards[(episode - 99):episode + 1])
                     lst_5_avg = np.mean(episode_rewards[(episode - 5):episode + 1])
-                    # if lst_5_avg > 475:
-                    #   sv_learning_rate
+                    if lst_5_avg > 475:
+                        stable = True
 
                     print(
                         "Episode {} Reward: {} Average over 100 episodes: {}".format(episode, episode_rewards[episode],
