@@ -39,7 +39,7 @@ class PolicyNetwork:
             self.actions_distribution = tf.squeeze(tf.nn.softmax(self.output))
             self.actions_log_probs = tf.math.log(self.actions_distribution)
 
-            # Loss calculation - to acheive gradient ascent we wan't to minimize the negative of the loss.
+            # Loss calculation  - for gradient ascent we minimize the negative loss. Loss = delta*I*ln(Pi)
             self.loss = self.I_factor * -tf.math.reduce_sum(self.advantage_delta * self.actions_log_probs)
             self.optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.loss)
 
@@ -70,8 +70,8 @@ class ValueNetwork:
             self.A2 = tf.nn.relu(self.Z2)
             self.output = tf.add(tf.matmul(self.A2, self.W3), self.b3)
 
-            # Loss calculation - to acheive gradient ascent we wan't to minimize the negative of the loss.
-            self.loss = -self.advantage_delta * self.I_factor * self.output
+            # Loss calculation  - for gradient ascent we minimize the negative loss. Loss = delta*I*V
+            self.loss = -self.advantage_delta * self.I_factor * self.output #
             self.optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.loss)
 
 
