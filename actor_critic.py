@@ -124,31 +124,28 @@ def run(discount_factor, policy_learning_rate, sv_learning_rate):
                 next_state, reward, done, _ = env.step(action)
                 next_state = next_state.reshape([1, state_size])
 
-                # action_one_hot = np.zeros(action_size)
-                # action_one_hot[action] = 1
                 episode_rewards[episode] += reward
 
                 if render:
                     env.render()
 
-                # Calculate state-value output for current state
+                # Calculate state-value output for current state V(S,w)
                 feed_dict = {state_value.state: state}
                 value_current_state = sess.run(state_value.output, feed_dict)
 
-                # Calculate state-value output for next state
+                # Calculate state-value output for next state V(S',w)
                 feed_dict = {state_value.state: next_state}
                 value_next_state = sess.run(state_value.output, feed_dict)
 
-                # Calculate advantage
-                target = reward if done else reward + discount_factor * value_next_state
-                advantage_delta = target - value_current_state
+                # Calculate delta
+                advantage_delta = reward - value_current_state if done else reward + discount_factor * value_next_state - value_current_state
 
-                # Update the state_value network weights
+                # Update the state_value network weights w <- w + alpha*I*delta*grad[V(S,w)]
                 feed_dict = {state_value.state: state, state_value.I_factor: I_factor,
                              state_value.advantage_delta: advantage_delta}
                 _, loss_state = sess.run([state_value.optimizer, state_value.loss], feed_dict)
 
-                # Update the policy network weights
+                # Update the policy network weights theta <- theta + alpha*I*delta*grad[ln(theta)]
                 feed_dict = {policy.state: state, policy.I_factor: I_factor,
                              policy.advantage_delta: advantage_delta}
                 if early_stopping:
@@ -158,7 +155,6 @@ def run(discount_factor, policy_learning_rate, sv_learning_rate):
                   _, loss_policy = sess.run([policy.optimizer, policy.loss], feed_dict)
 
                 if done:
-
                     if episode > 98:
                         average_rewards = np.mean(episode_rewards[(episode - 99):episode + 1])
 
@@ -176,7 +172,7 @@ def run(discount_factor, policy_learning_rate, sv_learning_rate):
                 # I <- gamma*I
                 I_factor *= discount_factor
 
-                # S<-S'
+                # S <- S'
                 state = next_state
 
             if solved:
@@ -190,14 +186,6 @@ def run(discount_factor, policy_learning_rate, sv_learning_rate):
 
 if __name__ == '__main__':
     SEED = 42
-    # optimal_sv_lr = 0.0007
-    # optimal_policy_lr = 0.0005
-
-    # optimal_sv_lr = tf.keras.optimizers.schedules.ExponentialDecay(
-    # initial_learning_rate,
-    # decay_steps=100000,
-    # decay_rate=0.96,
-    # staircase=True)
 
     optimal_sv_lr = 0.0007
     optimal_policy_lr = 0.01
