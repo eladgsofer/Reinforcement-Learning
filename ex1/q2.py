@@ -168,7 +168,7 @@ class DQN():
             acc_reward = 0
             ep_loss_list = []
             for t in range(T):  # max T steps in each experience
-                # Early stopping
+                # Epsilon decay early stopping
                 if sum(self.acc_reward_list[-130:]) / 130 > 475:
                     flag = True
                     break
